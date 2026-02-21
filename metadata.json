@@ -1,0 +1,8 @@
+{
+  "name": "Final Bingo prediction app",
+  "description": "A Web3-inspired prediction marketplace and social feed where users bet on future events using bonding curve mechanics. Featuring a sleek dark-purple UI.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
