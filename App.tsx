@@ -35,9 +35,23 @@ const App: React.FC = () => {
     name: 'lady gaga',
     handle: '@ladygaga',
     avatar: 'https://picsum.photos/seed/user123/100/100',
-    points: 1250,
+    points: 0,
     referralCode: 'GAGA777'
   });
+
+  // Fetch real data on mount
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userRes = await fetch('/api/user/stats');
+        const userData = await userRes.json();
+        setCurrentUser(prev => ({ ...prev, points: userData.points }));
+      } catch (err) {
+        console.error("Failed to sync with backend", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleBookmark = useCallback((id: string) => {
     setBookmarkedIds(prev => {
@@ -82,27 +96,31 @@ const App: React.FC = () => {
     setSelectedDetail({ prediction: newPrediction });
   };
 
-  const handleConfirmBet = (amount: number) => {
+  const handleConfirmBet = async (amount: number) => {
     if (!selectedPrediction) return;
 
-    const newPosition: UserPosition = {
-      predictionId: selectedPrediction.p.id,
-      side: selectedPrediction.side,
-      shares: amount / (selectedPrediction.side === 'yes' ? selectedPrediction.p.odds.yes : selectedPrediction.p.odds.no),
-      avgPrice: selectedPrediction.side === 'yes' ? selectedPrediction.p.odds.yes : selectedPrediction.p.odds.no
-    };
+    try {
+      const res = await fetch('/api/user/bet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount })
+      });
+      const data = await res.json();
 
-    setUserPositions(prev => [...prev, newPosition]);
-    
-    // Award points for trading (e.g., 10 points per 1 USDC)
-    const pointsAwarded = Math.floor(amount * 10);
-    setCurrentUser(prev => ({
-      ...prev,
-      points: prev.points + pointsAwarded
-    }));
+      const newPosition: UserPosition = {
+        predictionId: selectedPrediction.p.id,
+        side: selectedPrediction.side,
+        shares: amount / (selectedPrediction.side === 'yes' ? selectedPrediction.p.odds.yes : selectedPrediction.p.odds.no),
+        avgPrice: selectedPrediction.side === 'yes' ? selectedPrediction.p.odds.yes : selectedPrediction.p.odds.no
+      };
 
-    setSelectedPrediction(null);
-    alert(`Success! You bought ${newPosition.shares.toFixed(2)} shares of ${selectedPrediction.side.toUpperCase()}. You earned ${pointsAwarded} points!`);
+      setUserPositions(prev => [...prev, newPosition]);
+      setCurrentUser(prev => ({ ...prev, points: data.newPoints }));
+      setSelectedPrediction(null);
+      alert(`Success! You earned ${Math.floor(amount * 10)} points from real trade!`);
+    } catch (err) {
+      alert("Bet failed to sync with server");
+    }
   };
 
   const handleResolvePrediction = (predictionId: string, result: 'yes' | 'no') => {
